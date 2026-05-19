@@ -8,6 +8,7 @@ import CadastroProduto from './components/CadastroProduto';
 import ListarProdutos from './components/ListarProdutos';
 import Vendas from './components/Vendas';
 import Dashboard from './components/Dashboard';
+import bannerImg from './assets/banner.jpg';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -139,7 +140,7 @@ function App() {
       ) : (
         <div className="auth-layout">
           <img 
-            src="./assets/banner.jpg" 
+            src={bannerImg}
             alt="Interior de um Mini Mercado" 
             className="auth-image"
           />
