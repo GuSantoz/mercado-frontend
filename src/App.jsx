@@ -15,7 +15,7 @@ function App() {
   const [authTab, setAuthTab] = useState('login');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [nomeUsuario, setNomeUsuario] = useState('');
-  const [dashboardTab, setDashboardTab] = useState('perfil');
+  const [dashboardTab, setDashboardTab] = useState('vendas');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -159,6 +159,7 @@ function App() {
               <Login onLoginSuccess={(nome) => {
                 setNomeUsuario(nome);
                 setIsLoggedIn(true);
+                setDashboardTab('vendas');
               }} />
             ) : (
               <CadastroUsuario onCadastroSuccess={() => setIsModalOpen(true)} />
