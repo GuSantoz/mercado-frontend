@@ -57,6 +57,39 @@ function Vendas() {
     }
   };
 
+  const alterarStatusVenda = async (venda) => {
+    const novoStatus = !venda.status;
+    const confirmado = window.confirm(
+      novoStatus ? 'Reativar esta venda?' : 'Inativar esta venda?'
+    );
+    if (!confirmado) return;
+
+    try {
+      const resposta = await fetch('http://localhost:5000/venda/status', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          id: venda.id,
+          status: novoStatus
+        })
+      });
+
+      const dados = await resposta.json();
+
+      if (resposta.ok) {
+        buscarVendas();
+      } else {
+        alert('Erro: ' + dados.erro);
+      }
+    } catch (erro) {
+      console.error('Erro ao atualizar status da venda:', erro);
+      alert('Erro ao conectar com o servidor.');
+    }
+  };
+
   const realizarVenda = async (e) => {
     e.preventDefault();
 
@@ -231,11 +264,13 @@ function Vendas() {
                     <th style={{ padding: '10px', textAlign: 'right' }}>Preço Unit.</th>
                     <th style={{ padding: '10px', textAlign: 'right' }}>Total</th>
                     <th style={{ padding: '10px', textAlign: 'center' }}>Data/Hora</th>
+                    <th style={{ padding: '10px', textAlign: 'center' }}>Status</th>
+                    <th style={{ padding: '10px', textAlign: 'center' }}>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {vendas.map((venda) => (
-                    <tr key={venda.order_number} style={{ borderBottom: '1px solid #ddd', backgroundColor: '#fff' }}>
+                    <tr key={venda.id} style={{ borderBottom: '1px solid #ddd', backgroundColor: '#fff' }}>
                       <td style={{ padding: '10px', color: '#000', fontWeight: 'bold' }}>{venda.order_number || '---'}</td>
                       <td style={{ padding: '10px', color: '#000' }}>{venda.product_name}</td>
                       <td style={{ padding: '10px', textAlign: 'center', color: '#000' }}>{venda.quantity}</td>
@@ -245,6 +280,34 @@ function Vendas() {
                       </td>
                       <td style={{ padding: '10px', textAlign: 'center', fontSize: '12px', color: '#000' }}>
                         {new Date(venda.created_at).toLocaleString('pt-BR')}
+                      </td>
+                      <td style={{ padding: '10px', textAlign: 'center' }}>
+                        <span style={{
+                          padding: '4px 10px',
+                          borderRadius: '12px',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                          color: '#fff',
+                          backgroundColor: venda.status ? '#28a745' : '#999'
+                        }}>
+                          {venda.status ? 'Ativa' : 'Inativa'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px', textAlign: 'center' }}>
+                        <button
+                          onClick={() => alterarStatusVenda(venda)}
+                          style={{
+                            padding: '6px 12px',
+                            backgroundColor: venda.status ? '#dc3545' : '#28a745',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '12px'
+                          }}
+                        >
+                          {venda.status ? 'Inativar' : 'Reativar'}
+                        </button>
                       </td>
                     </tr>
                   ))}

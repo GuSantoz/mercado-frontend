@@ -41,7 +41,7 @@ function App() {
       </header>
 
       {isLoggedIn ? (
-        <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
+        <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
           
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '30px', marginBottom: '20px' }}>
             <span style={{ fontSize: '36px', fontWeight: 'bold' }}>
