@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import Checkout from './Checkout';
 
 function Vendas() {
   const [produtos, setProdutos] = useState([]);
@@ -9,6 +10,7 @@ function Vendas() {
   const [quantidade, setQuantidade] = useState('');
   const [itensVenda, setItensVenda] = useState([]);
   const [abaSelecionada, setAbaSelecionada] = useState('realizar');
+  const [mostrarCheckout, setMostrarCheckout] = useState(false);
 
   useEffect(() => {
     buscarProdutos();
@@ -164,7 +166,7 @@ function Vendas() {
     }, {})
   ).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-  const realizarVenda = async (e) => {
+  const irParaPagamento = (e) => {
     e.preventDefault();
 
     if (itensVenda.length === 0) {
@@ -172,37 +174,35 @@ function Vendas() {
       return;
     }
 
-    try {
-      const resposta = await fetch('http://localhost:5000/venda', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          itens: itensVenda.map((item) => ({
-            product_id: item.product_id,
-            quantity: item.quantity
-          }))
-        })
-      });
+    setMostrarCheckout(true);
+  };
 
-      const dados = await resposta.json();
+  const registrarVendaAposPagamento = async () => {
+    const resposta = await fetch('http://localhost:5000/venda', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({
+        itens: itensVenda.map((item) => ({
+          product_id: item.product_id,
+          quantity: item.quantity
+        }))
+      })
+    });
 
-      if (resposta.ok) {
-        alert(dados.message);
-        setItensVenda([]);
-        setProdutoSelecionado('');
-        setQuantidade('');
-        buscarProdutos();
-        buscarVendas();
-      } else {
-        alert('Erro: ' + dados.erro);
-      }
-    } catch (erro) {
-      console.error('Erro ao realizar venda:', erro);
-      alert('Erro ao conectar com o servidor.');
+    const dados = await resposta.json();
+
+    if (!resposta.ok) {
+      throw new Error(dados.erro || 'Erro ao registrar a venda.');
     }
+
+    setItensVenda([]);
+    setProdutoSelecionado('');
+    setQuantidade('');
+    buscarProdutos();
+    buscarVendas();
   };
 
   return (
@@ -239,6 +239,14 @@ function Vendas() {
       </div>
 
       {abaSelecionada === 'realizar' ? (
+        mostrarCheckout ? (
+          <Checkout
+            itens={itensVenda}
+            total={totalVenda}
+            onPagamentoAprovado={registrarVendaAposPagamento}
+            onCancelar={() => setMostrarCheckout(false)}
+          />
+        ) : (
         <div style={{ backgroundColor: '#f9f9f9', padding: '20px', borderRadius: '5px', color: '#333' }}>
           <h3 style={{ color: '#212529', marginTop: 0 }}>Realizar Venda</h3>
           {erro && <div style={{ color: 'red', marginBottom: '10px' }}>{erro}</div>}
@@ -309,7 +317,7 @@ function Vendas() {
             ➕ Adicionar Item
           </button>
 
-          <form onSubmit={realizarVenda}>
+          <form onSubmit={irParaPagamento}>
             <h4 style={{ color: '#212529', marginBottom: '10px' }}>Itens da Venda</h4>
             {itensVenda.length === 0 ? (
               <p style={{ color: '#999', marginBottom: '20px' }}>Nenhum item adicionado.</p>
@@ -384,10 +392,11 @@ function Vendas() {
                 fontSize: '16px'
               }}
             >
-              ✔️ Confirmar Venda
+              💳 Ir para Pagamento
             </button>
           </form>
         </div>
+        )
       ) : (
         <div>
           <h3>Histórico de Vendas</h3>
