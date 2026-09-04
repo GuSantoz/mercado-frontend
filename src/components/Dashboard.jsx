@@ -60,7 +60,22 @@ function Dashboard() {
   const totalItensEstoque = produtos.reduce((acc, p) => acc + (Number(p.quantity) || 0), 0);
   const totalProdutosCadastrados = produtos.length;
   const totalVendasReais = vendas.reduce((acc, v) => acc + (parseFloat(v.total_price) || 0), 0);
-  const totalPedidos = vendas.length;
+
+  const pedidos = Object.values(
+    vendas.reduce((acc, venda) => {
+      const chave = venda.order_number || `sem-codigo-${venda.id}`;
+      if (!acc[chave]) {
+        acc[chave] = {
+          order_number: venda.order_number,
+          created_at: venda.created_at,
+          itens: []
+        };
+      }
+      acc[chave].itens.push(venda);
+      return acc;
+    }, {})
+  );
+  const totalPedidos = pedidos.length;
 
   const produtoMaisEstoque = produtos.length > 0
     ? produtos.reduce((a, b) => (Number(a.quantity) > Number(b.quantity) ? a : b))
@@ -170,21 +185,25 @@ function Dashboard() {
               {/* Últimas vendas */}
               <div className={`db-panel ${animado ? 'visivel' : ''}`}>
                 <p className="db-panel-title">🧾 Últimas Vendas</p>
-                {vendas.length === 0 ? (
+                {pedidos.length === 0 ? (
                   <p className="db-vazio">Nenhuma venda realizada.</p>
                 ) : (
-                  [...vendas]
+                  [...pedidos]
                     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
                     .slice(0, 6)
-                    .map((v, i) => (
-                      <div className="db-venda-item" key={i}>
-                        <div className="db-venda-produto">{v.product_name}</div>
-                        <div className="db-venda-meta">
-                          <span>{v.quantity} un. × R$ {parseFloat(v.price).toFixed(2)}</span>
-                          <span className="db-venda-total">R$ {parseFloat(v.total_price).toFixed(2)}</span>
+                    .map((pedido) => {
+                      const totalPedido = pedido.itens.reduce((acc, it) => acc + (parseFloat(it.total_price) || 0), 0);
+                      const nomes = pedido.itens.map(it => it.product_name).join(', ');
+                      return (
+                        <div className="db-venda-item" key={pedido.order_number || pedido.itens[0].id}>
+                          <div className="db-venda-produto" title={nomes}>{nomes}</div>
+                          <div className="db-venda-meta">
+                            <span>{pedido.itens.length} {pedido.itens.length === 1 ? 'item' : 'itens'}</span>
+                            <span className="db-venda-total">R$ {totalPedido.toFixed(2)}</span>
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                 )}
               </div>
             </div>
