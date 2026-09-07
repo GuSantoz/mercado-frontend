@@ -13,6 +13,21 @@ function Vendas() {
   const [itensVenda, setItensVenda] = useState([]);
   const [abaSelecionada, setAbaSelecionada] = useState('realizar');
 
+  const produtoEstaAtivo = (produto) => produto?.status === true || produto?.status === 1 || produto?.status === '1';
+
+  const obterIdUsuarioDoToken = () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
+
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.user_id;
+    } catch (erro) {
+      console.error('Não foi possível identificar o usuário logado:', erro);
+      return null;
+    }
+  };
+
   useEffect(() => {
     buscarProdutos();
     buscarVendas();
@@ -30,7 +45,9 @@ function Vendas() {
 
       const dados = await resposta.json();
       if (resposta.ok) {
-        setProdutos(dados.usuarios || []);
+        const produtosEncontrados = dados.usuarios || [];
+        setProdutos(produtosEncontrados);
+        return produtosEncontrados;
       } else {
         setErro(dados.erro || 'Erro ao buscar produtos');
       }
@@ -38,9 +55,13 @@ function Vendas() {
       console.error('Erro de conexão:', erro);
       setErro('Não foi possível conectar com o servidor.');
     }
+
+    return [];
   };
 
   const buscarVendas = async () => {
+    setVendas([]);
+
     try {
       const resposta = await fetch('http://localhost:5000/venda', {
         method: 'GET',
@@ -52,7 +73,11 @@ function Vendas() {
 
       const dados = await resposta.json();
       if (resposta.ok) {
-        setVendas(dados.vendas || []);
+        const idUsuarioLogado = obterIdUsuarioDoToken();
+        const vendasDoUsuario = (dados.vendas || []).filter(
+          (venda) => String(venda.user_id) === String(idUsuarioLogado)
+        );
+        setVendas(vendasDoUsuario);
       }
     } catch (erro) {
       console.error('Erro ao buscar vendas:', erro);
@@ -116,6 +141,12 @@ function Vendas() {
     const produto = produtos.find((p) => p.id === parseInt(produtoSelecionado));
     if (!produto) {
       alert('Produto não encontrado!');
+      return;
+    }
+
+    if (!produtoEstaAtivo(produto)) {
+      alert('Este produto está inativo e não pode ser vendido.');
+      setProdutoSelecionado('');
       return;
     }
 
@@ -188,6 +219,18 @@ const pedidosFiltrados = pedidosAgrupados.filter((pedido) => {
 
     if (itensVenda.length === 0) {
       alert('Adicione ao menos um item à venda!');
+      return;
+    }
+
+    const produtosAtualizados = await buscarProdutos();
+    const produtoInativo = itensVenda.some((item) => {
+      const produto = produtosAtualizados.find((produtoAtualizado) => produtoAtualizado.id === item.product_id);
+      return !produtoEstaAtivo(produto);
+    });
+
+    if (produtoInativo) {
+      alert('Um ou mais produtos selecionados estão inativos e não podem ser vendidos.');
+      setItensVenda([]);
       return;
     }
 
@@ -279,7 +322,7 @@ const pedidosFiltrados = pedidosAgrupados.filter((pedido) => {
               }}
             >
               <option value="">-- Escolha um produto --</option>
-              {produtos.map((produto) => (
+              {produtos.filter(produtoEstaAtivo).map((produto) => (
                 <option key={produto.id} value={produto.id}>
                   {produto.name} - R$ {parseFloat(produto.price).toFixed(2)} (Est: {produto.quantity})
                 </option>
