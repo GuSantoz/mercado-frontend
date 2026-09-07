@@ -60,7 +60,27 @@ function Dashboard() {
   const totalItensEstoque = produtos.reduce((acc, p) => acc + (Number(p.quantity) || 0), 0);
   const totalProdutosCadastrados = produtos.length;
   const totalVendasReais = vendas.reduce((acc, v) => acc + (parseFloat(v.total_price) || 0), 0);
-  const totalPedidos = vendas.length;
+
+  // Agrupa os itens de venda por pedido (order_number)
+  const pedidos = Object.values(
+    vendas.reduce((acc, v) => {
+      const chave = v.order_number || `sem-codigo-${v.id}`;
+      if (!acc[chave]) {
+        acc[chave] = {
+          order_number: v.order_number,
+          created_at: v.created_at,
+          itens: []
+        };
+      }
+      acc[chave].itens.push(v);
+      return acc;
+    }, {})
+  );
+  const totalPedidos = pedidos.length;
+
+  const ultimosPedidos = [...pedidos]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 6);
 
   const produtoMaisEstoque = produtos.length > 0
     ? produtos.reduce((a, b) => (Number(a.quantity) > Number(b.quantity) ? a : b))
@@ -170,21 +190,33 @@ function Dashboard() {
               {/* Últimas vendas */}
               <div className={`db-panel ${animado ? 'visivel' : ''}`}>
                 <p className="db-panel-title">🧾 Últimas Vendas</p>
-                {vendas.length === 0 ? (
+                {pedidos.length === 0 ? (
                   <p className="db-vazio">Nenhuma venda realizada.</p>
                 ) : (
-                  [...vendas]
-                    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                    .slice(0, 6)
-                    .map((v, i) => (
-                      <div className="db-venda-item" key={i}>
-                        <div className="db-venda-produto">{v.product_name}</div>
+                  ultimosPedidos.map((pedido, i) => {
+                    const totalPedido = pedido.itens.reduce(
+                      (soma, item) => soma + (parseFloat(item.total_price) || 0),
+                      0
+                    );
+                    const qtdItens = pedido.itens.length;
+                    return (
+                      <div className="db-venda-item" key={pedido.order_number || i}>
+                        <div className="db-venda-produto">
+                          Pedido {pedido.order_number || '---'}
+                          <span style={{ fontWeight: 400, color: '#999', marginLeft: '8px', fontSize: '12px' }}>
+                            {qtdItens} {qtdItens === 1 ? 'item' : 'itens'}
+                          </span>
+                        </div>
+                        <div style={{ color: '#666', fontSize: '12px', margin: '2px 0 4px' }}>
+                          {pedido.itens.map((item) => `${item.quantity}× ${item.product_name}`).join(', ')}
+                        </div>
                         <div className="db-venda-meta">
-                          <span>{v.quantity} un. × R$ {parseFloat(v.price).toFixed(2)}</span>
-                          <span className="db-venda-total">R$ {parseFloat(v.total_price).toFixed(2)}</span>
+                          <span>{new Date(pedido.created_at).toLocaleString('pt-BR')}</span>
+                          <span className="db-venda-total">R$ {totalPedido.toFixed(2)}</span>
                         </div>
                       </div>
-                    ))
+                    );
+                  })
                 )}
               </div>
             </div>
