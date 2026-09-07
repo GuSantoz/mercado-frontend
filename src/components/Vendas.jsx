@@ -24,7 +24,6 @@ function Vendas() {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
-
       const dados = await resposta.json();
       if (resposta.ok) {
         setProdutos(dados.usuarios || []);
@@ -32,7 +31,6 @@ function Vendas() {
         setErro(dados.erro || 'Erro ao buscar produtos');
       }
     } catch (erro) {
-      console.error('Erro de conexão:', erro);
       setErro('Não foi possível conectar com o servidor.');
     }
   };
@@ -46,9 +44,9 @@ function Vendas() {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
-
       const dados = await resposta.json();
       if (resposta.ok) {
+        // A API agora devolve as vendas já estruturadas com os "items" aninhados
         setVendas(dados.vendas || []);
       }
     } catch (erro) {
@@ -59,41 +57,36 @@ function Vendas() {
   };
 
   const alterarStatusPedido = async (pedido) => {
-    const pedidoAtivo = pedido.itens.every((item) => item.status);
-    const novoStatus = !pedidoAtivo;
+    const novoStatus = !pedido.status;
     const confirmado = window.confirm(
       novoStatus ? 'Reativar este pedido?' : 'Inativar este pedido?'
     );
     if (!confirmado) return;
 
     try {
-      for (const item of pedido.itens) {
-        if (item.status === novoStatus) continue;
+      // Agora o status fica no cabeçalho do pedido, apenas 1 chamada é necessária
+      const resposta = await fetch('http://localhost:5000/venda/status', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          id: pedido.id,
+          status: novoStatus
+        })
+      });
 
-        const resposta = await fetch('http://localhost:5000/venda/status', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({
-            id: item.id,
-            status: novoStatus
-          })
-        });
+      const dados = await resposta.json();
 
-        const dados = await resposta.json();
-
-        if (!resposta.ok) {
-          alert('Erro: ' + dados.erro);
-          break;
-        }
+      if (!resposta.ok) {
+        alert('Erro: ' + dados.erro);
+        return;
       }
 
       buscarProdutos();
       buscarVendas();
     } catch (erro) {
-      console.error('Erro ao atualizar status do pedido:', erro);
       alert('Erro ao conectar com o servidor.');
     }
   };
@@ -148,21 +141,6 @@ function Vendas() {
     (soma, item) => soma + item.price * item.quantity,
     0
   );
-
-  const pedidos = Object.values(
-    vendas.reduce((acc, venda) => {
-      const chave = venda.order_number || `sem-codigo-${venda.id}`;
-      if (!acc[chave]) {
-        acc[chave] = {
-          order_number: venda.order_number,
-          created_at: venda.created_at,
-          itens: []
-        };
-      }
-      acc[chave].itens.push(venda);
-      return acc;
-    }, {})
-  ).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   const realizarVenda = async (e) => {
     e.preventDefault();
@@ -251,13 +229,7 @@ function Vendas() {
               id="produto"
               value={produtoSelecionado}
               onChange={(e) => setProdutoSelecionado(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px',
-                border: '1px solid #ccc',
-                borderRadius: '5px',
-                fontSize: '14px'
-              }}
+              style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '5px', fontSize: '14px' }}
             >
               <option value="">-- Escolha um produto --</option>
               {produtos.map((produto) => (
@@ -279,32 +251,14 @@ function Vendas() {
               onChange={(e) => setQuantidade(e.target.value)}
               min="1"
               placeholder="Digite a quantidade"
-              style={{
-                width: '100%',
-                padding: '10px',
-                border: '1px solid #ccc',
-                borderRadius: '5px',
-                fontSize: '14px',
-                boxSizing: 'border-box'
-              }}
+              style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '5px', fontSize: '14px', boxSizing: 'border-box' }}
             />
           </div>
 
           <button
             type="button"
             onClick={adicionarItem}
-            style={{
-              width: '100%',
-              padding: '12px',
-              backgroundColor: '#007bff',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              fontSize: '16px',
-              marginBottom: '20px'
-            }}
+            style={{ width: '100%', padding: '12px', backgroundColor: '#007bff', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', marginBottom: '20px' }}
           >
             ➕ Adicionar Item
           </button>
@@ -338,15 +292,7 @@ function Vendas() {
                           <button
                             type="button"
                             onClick={() => removerItem(item.product_id)}
-                            style={{
-                              padding: '6px 12px',
-                              backgroundColor: '#dc3545',
-                              color: '#fff',
-                              border: 'none',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontSize: '12px'
-                            }}
+                            style={{ padding: '6px 12px', backgroundColor: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
                           >
                             Remover
                           </button>
@@ -356,12 +302,8 @@ function Vendas() {
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td colSpan="3" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#000' }}>
-                        Total:
-                      </td>
-                      <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#000' }}>
-                        R$ {totalVenda.toFixed(2)}
-                      </td>
+                      <td colSpan="3" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#000' }}>Total:</td>
+                      <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#000' }}>R$ {totalVenda.toFixed(2)}</td>
                       <td></td>
                     </tr>
                   </tfoot>
@@ -397,69 +339,29 @@ function Vendas() {
             <p style={{ color: '#999' }}>Nenhuma venda realizada ainda.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              {pedidos.map((pedido) => {
-                const totalPedido = pedido.itens.reduce(
-                  (soma, item) => soma + parseFloat(item.total_price),
-                  0
-                );
-                const todosAtivos = pedido.itens.every((item) => item.status);
-                const nenhumAtivo = pedido.itens.every((item) => !item.status);
-                const statusLabel = todosAtivos ? 'Ativo' : nenhumAtivo ? 'Inativo' : 'Parcial';
-                const statusCor = todosAtivos ? '#28a745' : nenhumAtivo ? '#999' : '#f0ad4e';
+              {/* O loop agora é direto em "vendas" */}
+              {vendas.map((pedido) => {
+                const statusLabel = pedido.status ? 'Ativo' : 'Inativo';
+                const statusCor = pedido.status ? '#28a745' : '#999';
 
                 return (
-                  <div
-                    key={pedido.order_number || pedido.itens[0].id}
-                    style={{
-                      backgroundColor: '#f9f9f9',
-                      borderRadius: '5px',
-                      border: '1px solid #ddd',
-                      overflow: 'hidden'
-                    }}
-                  >
-                    <div style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '10px',
-                      padding: '10px 15px',
-                      backgroundColor: '#eef7f0',
-                      borderBottom: '1px solid #ddd'
-                    }}>
+                  <div key={pedido.id} style={{ backgroundColor: '#f9f9f9', borderRadius: '5px', border: '1px solid #ddd', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '10px 15px', backgroundColor: '#eef7f0', borderBottom: '1px solid #ddd' }}>
                       <div style={{ color: '#000' }}>
-                        <strong>Pedido {pedido.order_number || '---'}</strong>
+                        <strong>Pedido {pedido.order_number}</strong>
                         <span style={{ marginLeft: '12px', fontSize: '12px', color: '#555' }}>
                           {new Date(pedido.created_at).toLocaleString('pt-BR')}
                         </span>
-                        <span style={{ marginLeft: '12px', fontSize: '12px', color: '#555' }}>
-                          {pedido.itens.length} {pedido.itens.length === 1 ? 'item' : 'itens'}
-                        </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{
-                          padding: '4px 10px',
-                          borderRadius: '12px',
-                          fontSize: '12px',
-                          fontWeight: 'bold',
-                          color: '#fff',
-                          backgroundColor: statusCor
-                        }}>
+                        <span style={{ padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', color: '#fff', backgroundColor: statusCor }}>
                           {statusLabel}
                         </span>
                         <button
                           onClick={() => alterarStatusPedido(pedido)}
-                          style={{
-                            padding: '6px 12px',
-                            backgroundColor: todosAtivos ? '#dc3545' : '#28a745',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '12px'
-                          }}
+                          style={{ padding: '6px 12px', backgroundColor: pedido.status ? '#dc3545' : '#28a745', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
                         >
-                          {todosAtivos ? 'Inativar pedido' : 'Reativar pedido'}
+                          {pedido.status ? 'Inativar pedido' : 'Reativar pedido'}
                         </button>
                       </div>
                     </div>
@@ -472,11 +374,11 @@ function Vendas() {
                             <th style={{ padding: '8px 10px', textAlign: 'center' }}>Quantidade</th>
                             <th style={{ padding: '8px 10px', textAlign: 'right' }}>Preço Unit.</th>
                             <th style={{ padding: '8px 10px', textAlign: 'right' }}>Subtotal</th>
-                            <th style={{ padding: '8px 10px', textAlign: 'center' }}>Status</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {pedido.itens.map((item) => (
+                          {/* Varrendo os itens que já vêm aninhados da API */}
+                          {pedido.items && pedido.items.map((item) => (
                             <tr key={item.id} style={{ borderBottom: '1px solid #ddd', backgroundColor: '#fff' }}>
                               <td style={{ padding: '8px 10px', color: '#000' }}>{item.product_name}</td>
                               <td style={{ padding: '8px 10px', textAlign: 'center', color: '#000' }}>{item.quantity}</td>
@@ -484,30 +386,15 @@ function Vendas() {
                               <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 'bold', color: '#000' }}>
                                 R$ {parseFloat(item.total_price).toFixed(2)}
                               </td>
-                              <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                                <span style={{
-                                  padding: '3px 8px',
-                                  borderRadius: '12px',
-                                  fontSize: '11px',
-                                  fontWeight: 'bold',
-                                  color: '#fff',
-                                  backgroundColor: item.status ? '#28a745' : '#999'
-                                }}>
-                                  {item.status ? 'Ativa' : 'Inativa'}
-                                </span>
-                              </td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot>
                           <tr>
-                            <td colSpan="3" style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 'bold', color: '#000' }}>
-                              Total do pedido:
-                            </td>
+                            <td colSpan="3" style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 'bold', color: '#000' }}>Total do pedido:</td>
                             <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 'bold', color: '#000' }}>
-                              R$ {totalPedido.toFixed(2)}
+                              R$ {parseFloat(pedido.total_order || 0).toFixed(2)}
                             </td>
-                            <td></td>
                           </tr>
                         </tfoot>
                       </table>
