@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 
 function Vendas() {
+  const [filtroPedido, setFiltroPedido] = useState('');
+  const [filtroProduto, setFiltroProduto] = useState('');
+  const [filtroData, setFiltroData] = useState('');
   const [produtos, setProdutos] = useState([]);
   const [vendas, setVendas] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -149,20 +152,36 @@ function Vendas() {
     0
   );
 
-  const pedidos = Object.values(
-    vendas.reduce((acc, venda) => {
-      const chave = venda.order_number || `sem-codigo-${venda.id}`;
-      if (!acc[chave]) {
-        acc[chave] = {
-          order_number: venda.order_number,
-          created_at: venda.created_at,
-          itens: []
-        };
-      }
-      acc[chave].itens.push(venda);
-      return acc;
-    }, {})
-  ).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const pedidosAgrupados = Object.values(
+  vendas.reduce((acc, venda) => {
+    const chave = venda.order_number || `sem-codigo-${venda.id}`;
+    if (!acc[chave]) {
+      acc[chave] = {
+        order_number: venda.order_number,
+        created_at: venda.created_at,
+        itens: []
+      };
+    }
+    acc[chave].itens.push(venda);
+    return acc;
+  }, {})
+).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+const pedidosFiltrados = pedidosAgrupados.filter((pedido) => {
+  // Filtro por Número do Pedido
+  const matchPedido = filtroPedido === '' || 
+    (pedido.order_number && pedido.order_number.toLowerCase().includes(filtroPedido.toLowerCase()));
+
+  // Filtro por Produto (busca se algum item dentro do pedido bate com a pesquisa)
+  const matchProduto = filtroProduto === '' || 
+    pedido.itens.some((item) => item.product_name.toLowerCase().includes(filtroProduto.toLowerCase()));
+
+  // Filtro por Data (compara o início da string ISO com a data selecionada)
+  const matchData = filtroData === '' || 
+    (pedido.created_at && pedido.created_at.startsWith(filtroData));
+
+  return matchPedido && matchProduto && matchData;
+});
 
   const realizarVenda = async (e) => {
     e.preventDefault();
@@ -391,13 +410,58 @@ function Vendas() {
       ) : (
         <div>
           <h3>Histórico de Vendas</h3>
+          {/* Início da Seção de Filtros */}
+          <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', padding: '15px', backgroundColor: '#fff', borderRadius: '5px', border: '1px solid #ddd' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Nº do Pedido:</label>
+              <input
+                type="text"
+                placeholder="Ex: P-3111"
+                value={filtroPedido}
+                onChange={(e) => setFiltroPedido(e.target.value)}
+                style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Nome do Produto:</label>
+              <input
+                type="text"
+                placeholder="Ex: Teclado"
+                value={filtroProduto}
+                onChange={(e) => setFiltroProduto(e.target.value)}
+                style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Data da Venda:</label>
+              <input
+                type="date"
+                value={filtroData}
+                onChange={(e) => setFiltroData(e.target.value)}
+                style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+              <button
+                onClick={() => { setFiltroPedido(''); setFiltroProduto(''); setFiltroData(''); }}
+                style={{ padding: '8px 15px', backgroundColor: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', height: '35px' }}
+              >
+                Limpar
+              </button>
+            </div>
+          </div>
+          {/* Fim da Seção de Filtros */}
           {carregando ? (
             <p>Carregando...</p>
           ) : vendas.length === 0 ? (
             <p style={{ color: '#999' }}>Nenhuma venda realizada ainda.</p>
+          ) : pedidosFiltrados.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '30px', backgroundColor: '#f9f9f9', borderRadius: '5px', border: '1px solid #ddd' }}>
+              <p style={{ color: '#666', fontSize: '16px', margin: 0 }}>Nenhum pedido encontrado com os filtros atuais.</p>
+            </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              {pedidos.map((pedido) => {
+              {pedidosFiltrados.map((pedido) => {
                 const totalPedido = pedido.itens.reduce(
                   (soma, item) => soma + parseFloat(item.total_price),
                   0
