@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 
 function Vendas() {
+  const [filtroPedido, setFiltroPedido] = useState('');
+  const [filtroProduto, setFiltroProduto] = useState('');
+  const [filtroData, setFiltroData] = useState('');
   const [produtos, setProdutos] = useState([]);
   const [vendas, setVendas] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -9,6 +12,21 @@ function Vendas() {
   const [quantidade, setQuantidade] = useState('');
   const [itensVenda, setItensVenda] = useState([]);
   const [abaSelecionada, setAbaSelecionada] = useState('realizar');
+
+  const produtoEstaAtivo = (produto) => produto?.status === true || produto?.status === 1 || produto?.status === '1';
+
+  const obterIdUsuarioDoToken = () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
+
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.user_id;
+    } catch (erro) {
+      console.error('Não foi possível identificar o usuário logado:', erro);
+      return null;
+    }
+  };
 
   useEffect(() => {
     buscarProdutos();
@@ -27,7 +45,9 @@ function Vendas() {
 
       const dados = await resposta.json();
       if (resposta.ok) {
-        setProdutos(dados.usuarios || []);
+        const produtosEncontrados = dados.usuarios || [];
+        setProdutos(produtosEncontrados);
+        return produtosEncontrados;
       } else {
         setErro(dados.erro || 'Erro ao buscar produtos');
       }
@@ -35,9 +55,13 @@ function Vendas() {
       console.error('Erro de conexão:', erro);
       setErro('Não foi possível conectar com o servidor.');
     }
+
+    return [];
   };
 
   const buscarVendas = async () => {
+    setVendas([]);
+
     try {
       const resposta = await fetch('http://localhost:5000/venda', {
         method: 'GET',
@@ -49,7 +73,11 @@ function Vendas() {
 
       const dados = await resposta.json();
       if (resposta.ok) {
-        setVendas(dados.vendas || []);
+        const idUsuarioLogado = obterIdUsuarioDoToken();
+        const vendasDoUsuario = (dados.vendas || []).filter(
+          (venda) => String(venda.user_id) === String(idUsuarioLogado)
+        );
+        setVendas(vendasDoUsuario);
       }
     } catch (erro) {
       console.error('Erro ao buscar vendas:', erro);
@@ -116,6 +144,12 @@ function Vendas() {
       return;
     }
 
+    if (!produtoEstaAtivo(produto)) {
+      alert('Este produto está inativo e não pode ser vendido.');
+      setProdutoSelecionado('');
+      return;
+    }
+
     const jaAdicionado = itensVenda.some((item) => item.product_id === produto.id);
     if (jaAdicionado) {
       alert('Este produto já foi adicionado. Remova-o para alterar a quantidade.');
@@ -149,26 +183,54 @@ function Vendas() {
     0
   );
 
-  const pedidos = Object.values(
-    vendas.reduce((acc, venda) => {
-      const chave = venda.order_number || `sem-codigo-${venda.id}`;
-      if (!acc[chave]) {
-        acc[chave] = {
-          order_number: venda.order_number,
-          created_at: venda.created_at,
-          itens: []
-        };
-      }
-      acc[chave].itens.push(venda);
-      return acc;
-    }, {})
-  ).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const pedidosAgrupados = Object.values(
+  vendas.reduce((acc, venda) => {
+    const chave = venda.order_number || `sem-codigo-${venda.id}`;
+    if (!acc[chave]) {
+      acc[chave] = {
+        order_number: venda.order_number,
+        created_at: venda.created_at,
+        itens: []
+      };
+    }
+    acc[chave].itens.push(venda);
+    return acc;
+  }, {})
+).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+const pedidosFiltrados = pedidosAgrupados.filter((pedido) => {
+  // Filtro por Número do Pedido
+  const matchPedido = filtroPedido === '' || 
+    (pedido.order_number && pedido.order_number.toLowerCase().includes(filtroPedido.toLowerCase()));
+
+  // Filtro por Produto (busca se algum item dentro do pedido bate com a pesquisa)
+  const matchProduto = filtroProduto === '' || 
+    pedido.itens.some((item) => item.product_name.toLowerCase().includes(filtroProduto.toLowerCase()));
+
+  // Filtro por Data (compara o início da string ISO com a data selecionada)
+  const matchData = filtroData === '' || 
+    (pedido.created_at && pedido.created_at.startsWith(filtroData));
+
+  return matchPedido && matchProduto && matchData;
+});
 
   const realizarVenda = async (e) => {
     e.preventDefault();
 
     if (itensVenda.length === 0) {
       alert('Adicione ao menos um item à venda!');
+      return;
+    }
+
+    const produtosAtualizados = await buscarProdutos();
+    const produtoInativo = itensVenda.some((item) => {
+      const produto = produtosAtualizados.find((produtoAtualizado) => produtoAtualizado.id === item.product_id);
+      return !produtoEstaAtivo(produto);
+    });
+
+    if (produtoInativo) {
+      alert('Um ou mais produtos selecionados estão inativos e não podem ser vendidos.');
+      setItensVenda([]);
       return;
     }
 
@@ -260,7 +322,7 @@ function Vendas() {
               }}
             >
               <option value="">-- Escolha um produto --</option>
-              {produtos.map((produto) => (
+              {produtos.filter(produtoEstaAtivo).map((produto) => (
                 <option key={produto.id} value={produto.id}>
                   {produto.name} - R$ {parseFloat(produto.price).toFixed(2)} (Est: {produto.quantity})
                 </option>
@@ -391,13 +453,58 @@ function Vendas() {
       ) : (
         <div>
           <h3>Histórico de Vendas</h3>
+          {/* Início da Seção de Filtros */}
+          <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', padding: '15px', backgroundColor: '#fff', borderRadius: '5px', border: '1px solid #ddd' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Nº do Pedido:</label>
+              <input
+                type="text"
+                placeholder="Ex: P-3111"
+                value={filtroPedido}
+                onChange={(e) => setFiltroPedido(e.target.value)}
+                style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Nome do Produto:</label>
+              <input
+                type="text"
+                placeholder="Ex: Teclado"
+                value={filtroProduto}
+                onChange={(e) => setFiltroProduto(e.target.value)}
+                style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Data da Venda:</label>
+              <input
+                type="date"
+                value={filtroData}
+                onChange={(e) => setFiltroData(e.target.value)}
+                style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+              <button
+                onClick={() => { setFiltroPedido(''); setFiltroProduto(''); setFiltroData(''); }}
+                style={{ padding: '8px 15px', backgroundColor: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', height: '35px' }}
+              >
+                Limpar
+              </button>
+            </div>
+          </div>
+          {/* Fim da Seção de Filtros */}
           {carregando ? (
             <p>Carregando...</p>
           ) : vendas.length === 0 ? (
             <p style={{ color: '#999' }}>Nenhuma venda realizada ainda.</p>
+          ) : pedidosFiltrados.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '30px', backgroundColor: '#f9f9f9', borderRadius: '5px', border: '1px solid #ddd' }}>
+              <p style={{ color: '#666', fontSize: '16px', margin: 0 }}>Nenhum pedido encontrado com os filtros atuais.</p>
+            </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              {pedidos.map((pedido) => {
+              {pedidosFiltrados.map((pedido) => {
                 const totalPedido = pedido.itens.reduce(
                   (soma, item) => soma + parseFloat(item.total_price),
                   0
