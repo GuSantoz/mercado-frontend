@@ -8,6 +8,7 @@ import CadastroProduto from './components/CadastroProduto';
 import ListarProdutos from './components/ListarProdutos';
 import Vendas from './components/Vendas';
 import Dashboard from './components/Dashboard';
+import Cupons from './components/Cupons';
 import bannerImg from './assets/banner.jpg';
 
 function App() {
@@ -52,7 +53,7 @@ function App() {
             </button>
           </div>
           
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '2px solid #ddd' }}>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '2px solid #ddd', flexWrap: 'wrap' }}>
             <button 
               onClick={() => setDashboardTab('perfil')}
               style={{
@@ -110,6 +111,20 @@ function App() {
               🛒 Vendas
             </button>
             <button 
+              onClick={() => setDashboardTab('cupons')}
+              style={{
+                padding: '12px 20px',
+                backgroundColor: dashboardTab === 'cupons' ? '#007bff' : '#f0f0f0',
+                color: dashboardTab === 'cupons' ? '#fff' : '#000',
+                border: 'none',
+                borderRadius: '5px 5px 0 0',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              🏷️ Cupons
+            </button>
+            <button 
               onClick={() => setDashboardTab('dashboard')}
               style={{
                 padding: '12px 20px',
@@ -133,6 +148,8 @@ function App() {
             <ListarProdutos />
           ) : dashboardTab === 'vendas' ? (
             <Vendas />
+          ) : dashboardTab === 'cupons' ? (
+            <Cupons />
           ) : dashboardTab === 'dashboard' ? (
             <Dashboard />
           ) : null}

@@ -15,6 +15,11 @@ function Vendas() {
   const [quantidade, setQuantidade] = useState('');
   const [itensVenda, setItensVenda] = useState([]);
 
+  const [codigoCupom, setCodigoCupom] = useState('');
+  const [cupomAplicado, setCupomAplicado] = useState(null);
+  const [erroCupom, setErroCupom] = useState('');
+  const [validandoCupom, setValidandoCupom] = useState(false);
+
   const [abaSelecionada, setAbaSelecionada] = useState('realizar');
 
   const produtoEstaAtivo = (produto) =>
@@ -238,6 +243,62 @@ function Vendas() {
     0
   );
 
+  const aplicarCupom = async () => {
+    if (!codigoCupom.trim()) {
+      setErroCupom('Digite o código do cupom.');
+      return;
+    }
+    if (totalVenda <= 0) {
+      setErroCupom('Adicione itens à venda antes de aplicar o cupom.');
+      return;
+    }
+
+    setValidandoCupom(true);
+    setErroCupom('');
+
+    try {
+      const resposta = await fetch('http://localhost:5000/coupon/validate', {
+        method: 'POST',
+        headers: obterHeaders(),
+        body: JSON.stringify({
+          code: codigoCupom.trim().toUpperCase(),
+          subtotal: totalVenda,
+        }),
+      });
+
+      const dados = await resposta.json();
+      if (resposta.ok && dados.dados) {
+        setCupomAplicado(dados.dados);
+        setErroCupom('');
+      } else {
+        setErroCupom(dados.erro || 'Cupom inválido.');
+        setCupomAplicado(null);
+      }
+    } catch (e) {
+      console.error('Erro ao validar cupom:', e);
+      setErroCupom('Não foi possível validar o cupom.');
+    } finally {
+      setValidandoCupom(false);
+    }
+  };
+
+  const removerCupom = () => {
+    setCupomAplicado(null);
+    setCodigoCupom('');
+    setErroCupom('');
+  };
+
+  const valorDesconto = cupomAplicado
+    ? cupomAplicado.discount_type === 'percentage'
+      ? Math.min(
+          totalVenda * (cupomAplicado.discount_value / 100),
+          cupomAplicado.max_discount_value != null ? cupomAplicado.max_discount_value : Infinity
+        )
+      : Math.min(cupomAplicado.discount_value, totalVenda)
+    : 0;
+
+  const totalComDesconto = Math.max(0, totalVenda - valorDesconto);
+
   const pedidosFiltrados = vendas
     .filter((pedido) => {
       const matchPedido =
@@ -305,6 +366,7 @@ function Vendas() {
             product_id: item.product_id,
             quantity: item.quantity,
           })),
+          coupon_code: cupomAplicado ? cupomAplicado.coupon_code : null,
         }),
       });
 
@@ -318,6 +380,9 @@ function Vendas() {
         setItensVenda([]);
         setProdutoSelecionado('');
         setQuantidade('');
+        setCupomAplicado(null);
+        setCodigoCupom('');
+        setErroCupom('');
 
         await buscarProdutos();
         await buscarVendas();
@@ -681,34 +746,210 @@ function Vendas() {
                   </tbody>
 
                   <tfoot>
-                    <tr>
-                      <td
-                        colSpan="3"
-                        style={{
-                          padding: '10px',
-                          textAlign: 'right',
-                          fontWeight: 'bold',
-                          color: '#000',
-                        }}
-                      >
-                        Total:
-                      </td>
+                    {cupomAplicado ? (
+                      <>
+                        <tr>
+                          <td
+                            colSpan="3"
+                            style={{
+                              padding: '8px 10px',
+                              textAlign: 'right',
+                              color: '#666',
+                            }}
+                          >
+                            Subtotal:
+                          </td>
+                          <td
+                            style={{
+                              padding: '8px 10px',
+                              textAlign: 'right',
+                              color: '#666',
+                            }}
+                          >
+                            R$ {totalVenda.toFixed(2)}
+                          </td>
+                          <td></td>
+                        </tr>
+                        <tr>
+                          <td
+                            colSpan="3"
+                            style={{
+                              padding: '8px 10px',
+                              textAlign: 'right',
+                              fontWeight: 'bold',
+                              color: '#28a745',
+                            }}
+                          >
+                            Desconto ({cupomAplicado.coupon_code}):
+                          </td>
+                          <td
+                            style={{
+                              padding: '8px 10px',
+                              textAlign: 'right',
+                              fontWeight: 'bold',
+                              color: '#28a745',
+                            }}
+                          >
+                            - R$ {valorDesconto.toFixed(2)}
+                          </td>
+                          <td></td>
+                        </tr>
+                        <tr style={{ borderTop: '2px solid #ddd' }}>
+                          <td
+                            colSpan="3"
+                            style={{
+                              padding: '10px',
+                              textAlign: 'right',
+                              fontWeight: 'bold',
+                              fontSize: '16px',
+                              color: '#000',
+                            }}
+                          >
+                            Total a Pagar:
+                          </td>
+                          <td
+                            style={{
+                              padding: '10px',
+                              textAlign: 'right',
+                              fontWeight: 'bold',
+                              fontSize: '16px',
+                              color: '#28a745',
+                            }}
+                          >
+                            R$ {totalComDesconto.toFixed(2)}
+                          </td>
+                          <td></td>
+                        </tr>
+                      </>
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan="3"
+                          style={{
+                            padding: '10px',
+                            textAlign: 'right',
+                            fontWeight: 'bold',
+                            color: '#000',
+                          }}
+                        >
+                          Total:
+                        </td>
 
-                      <td
-                        style={{
-                          padding: '10px',
-                          textAlign: 'right',
-                          fontWeight: 'bold',
-                          color: '#000',
-                        }}
-                      >
-                        R$ {totalVenda.toFixed(2)}
-                      </td>
+                        <td
+                          style={{
+                            padding: '10px',
+                            textAlign: 'right',
+                            fontWeight: 'bold',
+                            color: '#000',
+                          }}
+                        >
+                          R$ {totalVenda.toFixed(2)}
+                        </td>
 
-                      <td></td>
-                    </tr>
+                        <td></td>
+                      </tr>
+                    )}
                   </tfoot>
                 </table>
+              </div>
+            )}
+
+            {/* SEÇÃO DE CUPOM DE DESCONTO */}
+            {itensVenda.length > 0 && (
+              <div
+                style={{
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  padding: '15px',
+                  marginBottom: '20px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '18px' }}>🏷️</span>
+                  <strong style={{ color: '#1e293b', fontSize: '14px' }}>Possui um Cupom de Desconto?</strong>
+                </div>
+
+                {cupomAplicado ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: '#f0fdf4',
+                      border: '1px solid #bbf7d0',
+                      borderRadius: '6px',
+                      padding: '10px 14px',
+                    }}
+                  >
+                    <div>
+                      <span style={{ fontWeight: 'bold', color: '#166534', marginRight: '8px' }}>
+                        ✓ {cupomAplicado.coupon_code}
+                      </span>
+                      <span style={{ color: '#15803d', fontSize: '13px' }}>
+                        Desconto de R$ {valorDesconto.toFixed(2)} aplicado ({cupomAplicado.discount_type === 'percentage' ? `${cupomAplicado.discount_value}% OFF` : 'Fixo'})
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={removerCupom}
+                      style={{
+                        backgroundColor: '#fee2e2',
+                        color: '#991b1b',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '4px 10px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Remover
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      placeholder="Ex: PROMO10"
+                      value={codigoCupom}
+                      onChange={(e) => setCodigoCupom(e.target.value.toUpperCase())}
+                      style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '6px',
+                        fontFamily: 'monospace',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        textTransform: 'uppercase',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={aplicarCupom}
+                      disabled={validandoCupom || !codigoCupom.trim()}
+                      style={{
+                        padding: '8px 18px',
+                        backgroundColor: '#0284c7',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontWeight: 'bold',
+                        cursor: validandoCupom ? 'wait' : 'pointer',
+                        fontSize: '14px',
+                      }}
+                    >
+                      {validandoCupom ? 'Validando...' : 'Aplicar Cupom'}
+                    </button>
+                  </div>
+                )}
+
+                {erroCupom && (
+                  <div style={{ marginTop: '8px', color: '#dc2626', fontSize: '13px', fontWeight: '500' }}>
+                    ⚠️ {erroCupom}
+                  </div>
+                )}
               </div>
             )}
 
@@ -972,6 +1213,23 @@ function Vendas() {
                             ? 'item'
                             : 'itens'}
                         </span>
+
+                        {pedido.coupon_code && (
+                          <span
+                            style={{
+                              marginLeft: '12px',
+                              padding: '2px 8px',
+                              backgroundColor: '#e0f2fe',
+                              color: '#0369a1',
+                              borderRadius: '10px',
+                              fontSize: '12px',
+                              fontWeight: 'bold',
+                              border: '1px solid #bae6fd',
+                            }}
+                          >
+                            🏷️ {pedido.coupon_code} (- R$ {parseFloat(pedido.discount_applied || 0).toFixed(2)})
+                          </span>
+                        )}
                       </div>
 
                       <div
@@ -1135,33 +1393,105 @@ function Vendas() {
                         </tbody>
 
                         <tfoot>
-                          <tr>
-                            <td
-                              colSpan="3"
-                              style={{
-                                padding: '8px 10px',
-                                textAlign: 'right',
-                                fontWeight: 'bold',
-                                color: '#000',
-                              }}
-                            >
-                              Total do pedido:
-                            </td>
+                          {parseFloat(pedido.discount_applied || 0) > 0 ? (
+                            <>
+                              <tr>
+                                <td
+                                  colSpan="3"
+                                  style={{
+                                    padding: '6px 10px',
+                                    textAlign: 'right',
+                                    color: '#666',
+                                  }}
+                                >
+                                  Subtotal:
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '6px 10px',
+                                    textAlign: 'right',
+                                    color: '#666',
+                                  }}
+                                >
+                                  R$ {parseFloat(pedido.subtotal || totalPedido).toFixed(2)}
+                                </td>
+                              </tr>
+                              <tr>
+                                <td
+                                  colSpan="3"
+                                  style={{
+                                    padding: '6px 10px',
+                                    textAlign: 'right',
+                                    fontWeight: 'bold',
+                                    color: '#28a745',
+                                  }}
+                                >
+                                  Desconto ({pedido.coupon_code || 'Cupom'}):
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '6px 10px',
+                                    textAlign: 'right',
+                                    fontWeight: 'bold',
+                                    color: '#28a745',
+                                  }}
+                                >
+                                  - R$ {parseFloat(pedido.discount_applied).toFixed(2)}
+                                </td>
+                              </tr>
+                              <tr style={{ borderTop: '2px solid #ddd' }}>
+                                <td
+                                  colSpan="3"
+                                  style={{
+                                    padding: '8px 10px',
+                                    textAlign: 'right',
+                                    fontWeight: 'bold',
+                                    color: '#000',
+                                  }}
+                                >
+                                  Total pago:
+                                </td>
+                                <td
+                                  style={{
+                                    padding: '8px 10px',
+                                    textAlign: 'right',
+                                    fontWeight: 'bold',
+                                    color: '#28a745',
+                                  }}
+                                >
+                                  R$ {parseFloat(pedido.total_price || totalPedido).toFixed(2)}
+                                </td>
+                              </tr>
+                            </>
+                          ) : (
+                            <tr>
+                              <td
+                                colSpan="3"
+                                style={{
+                                  padding: '8px 10px',
+                                  textAlign: 'right',
+                                  fontWeight: 'bold',
+                                  color: '#000',
+                                }}
+                              >
+                                Total do pedido:
+                              </td>
 
-                            <td
-                              style={{
-                                padding: '8px 10px',
-                                textAlign: 'right',
-                                fontWeight: 'bold',
-                                color: '#000',
-                              }}
-                            >
-                              R${' '}
-                              {parseFloat(
-                                pedido.total_price || totalPedido
-                              ).toFixed(2)}
-                            </td>
-                          </tr>
+                              <td
+                                style={{
+                                  padding: '8px 10px',
+                                  textAlign: 'right',
+                                  fontWeight: 'bold',
+                                  color: '#000',
+                                }}
+                              >
+                                R${' '}
+                                {parseFloat(
+                                  pedido.total_price || totalPedido
+                                ).toFixed(2)}
+                              </td>
+                            </tr>
+                          )}
                         </tfoot>
                       </table>
                     </div>
