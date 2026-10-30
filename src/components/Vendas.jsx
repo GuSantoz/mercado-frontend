@@ -30,20 +30,17 @@ function Vendas() {
   const obterIdUsuarioDoToken = () => {
     try {
       const token = localStorage.getItem('token');
-
-      if (!token) {
-        return null;
-      }
+      if (!token) return null;
 
       const payload = JSON.parse(atob(token.split('.')[1]));
-
-      return payload.user_id;
+      
+      // Busca por 'id' ou 'user_id' dependendo de como o backend assinou o token
+      const userId = payload.user_id || payload.id; 
+      
+      console.log('ID do usuário extraído do token:', userId); // Para você inspecionar no console
+      return userId;
     } catch (erro) {
-      console.error(
-        'Não foi possível identificar o usuário logado:',
-        erro
-      );
-
+      console.error('Não foi possível identificar o usuário logado:', erro);
       return null;
     }
   };
@@ -86,7 +83,6 @@ function Vendas() {
 
   const buscarVendas = async () => {
     setCarregando(true);
-
     try {
       const resposta = await fetch('http://localhost:5000/venda', {
         method: 'GET',
@@ -94,15 +90,22 @@ function Vendas() {
       });
 
       const dados = await resposta.json();
-
+      
       if (resposta.ok) {
         const idUsuarioLogado = obterIdUsuarioDoToken();
+        
+        // Garante que funcione quer a API retorne um array direto quer retorne { vendas: [...] }
+        const listaVendas = Array.isArray(dados) ? dados : (dados.vendas || []);
+        
+        console.log('Todas as vendas retornadas pela API:', listaVendas); // Inspecione a estrutura
 
-        const vendasDoUsuario = (dados.vendas || []).filter(
-          (venda) =>
-            String(venda.user_id) === String(idUsuarioLogado)
-        );
+        const vendasDoUsuario = listaVendas.filter((venda) => {
+          // Ajuste aqui se a sua API retorna "venda.usuario_id" ou similar
+          const idDonoDaVenda = venda.user_id || venda.usuario_id;
+          return String(idDonoDaVenda) === String(idUsuarioLogado);
+        });
 
+        console.log('Vendas filtradas para o usuário logado:', vendasDoUsuario);
         setVendas(vendasDoUsuario);
       } else {
         setErro(dados.erro || 'Erro ao buscar vendas.');

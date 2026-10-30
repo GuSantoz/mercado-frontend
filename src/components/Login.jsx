@@ -1,21 +1,22 @@
 import { useState, useEffect } from 'react';
 
 const Login = ({ onLoginSuccess }) => {
-  const [cnpj, setCnpj] = useState('');
+  const [documento, setDocumento] = useState(''); // Alterado de cnpj para documento
   const [password, setPassword] = useState('');
   const [mensagem, setMensagem] = useState('');
 
   useEffect(() => {
-    const carregarCnpj = () => {
-      const cnpjSalvo = localStorage.getItem('cnpjAtivacao');
-      if (cnpjSalvo) {
-        setCnpj(cnpjSalvo);
+    const carregarDocumento = () => {
+      // Mantido 'cnpjAtivacao' para não quebrar seu fluxo de registro/ativação atual
+      const documentoSalvo = localStorage.getItem('cnpjAtivacao'); 
+      if (documentoSalvo) {
+        setDocumento(documentoSalvo);
       }
     };
 
-    carregarCnpj();
+    carregarDocumento();
 
-    const intervalo = setInterval(carregarCnpj, 500);
+    const intervalo = setInterval(carregarDocumento, 500);
 
     return () => clearInterval(intervalo);
   }, []);
@@ -29,7 +30,7 @@ const Login = ({ onLoginSuccess }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          cnpj: cnpj,
+          documento: documento, // Backend agora espera 'documento' (ou cnpj por retrocompatibilidade)
           password: password,
         }),
       });
@@ -39,10 +40,12 @@ const Login = ({ onLoginSuccess }) => {
       if (response.ok) {
         setMensagem('Login realizado com sucesso!');
         localStorage.setItem('token', data.token);
+        localStorage.setItem('role', data.role); // NOVO: Salva o papel (DONO, GERENTE, etc)
         
         localStorage.removeItem('cnpjAtivacao');
         
-        if (onLoginSuccess) onLoginSuccess(data.nome);
+        // NOVO: Passa a role para o componente pai (App.jsx)
+        if (onLoginSuccess) onLoginSuccess(data.nome, data.role); 
       } else {
         setMensagem(data.erro || 'Erro ao fazer login.');
       }
@@ -56,12 +59,12 @@ const Login = ({ onLoginSuccess }) => {
     <div style={{ maxWidth: '400px', margin: '20px auto 50px', padding: '20px' }}>
       <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         <div>
-          <label>CNPJ:</label>
+          <label>CPF ou CNPJ:</label>
           <input 
             type="text" 
-            value={cnpj}
-            onChange={(e) => setCnpj(e.target.value)} 
-            placeholder="CNPJ"
+            value={documento}
+            onChange={(e) => setDocumento(e.target.value)} 
+            placeholder="Digite seu CPF ou CNPJ"
             required 
             style={{ width: '100%', padding: '8px' }}
           />

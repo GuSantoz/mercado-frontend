@@ -10,30 +10,67 @@ import Vendas from './components/Vendas';
 import Dashboard from './components/Dashboard';
 import Cupons from './components/Cupons';
 import bannerImg from './assets/banner.jpg';
+import GerenciarFuncionarios from './components/GerenciarFuncionarios';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authTab, setAuthTab] = useState('login');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [nomeUsuario, setNomeUsuario] = useState('');
+  const [userRole, setUserRole] = useState(''); // NOVO: Estado para armazenar o papel
   const [dashboardTab, setDashboardTab] = useState('vendas');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     const nome = localStorage.getItem('nome_usuario');
+    const role = localStorage.getItem('role'); // NOVO: Puxa o papel do localStorage
     
     if (token && nome) {
       setIsLoggedIn(true);
       setNomeUsuario(nome);
+      setUserRole(role || 'DONO'); // Se não tiver role (usuários antigos), assume DONO
     }
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('nome_usuario');
+    localStorage.removeItem('role'); // NOVO: Limpa o papel no logout
     setIsLoggedIn(false);
     setNomeUsuario('');
+    setUserRole('');
   };
+
+  // NOVO: Função que define quem pode ver qual aba
+  const verificarPermissao = (aba) => {
+    switch (aba) {
+      case 'perfil':
+      case 'cupons':
+      case 'funcionarios': // Já deixei preparado para a próxima tela
+        return userRole === 'DONO';
+      case 'dashboard':
+        return userRole === 'DONO' || userRole === 'GERENTE';
+      case 'produto': // Cadastrar produto
+        return userRole === 'DONO' || userRole === 'GERENTE' || userRole === 'COMPRADOR';
+      case 'vendas':
+        return userRole === 'DONO' || userRole === 'GERENTE' || userRole === 'OPERADOR';
+      case 'listar': // Ver produtos (estoque)
+        return true; // Todos podem ver o estoque
+      default:
+        return false;
+    }
+  };
+
+  // NOVO: Função para limpar o CSS repetido dos botões
+  const getButtonStyle = (aba) => ({
+    padding: '12px 20px',
+    backgroundColor: dashboardTab === aba ? '#007bff' : '#f0f0f0',
+    color: dashboardTab === aba ? '#fff' : '#000',
+    border: 'none',
+    borderRadius: '5px 5px 0 0',
+    cursor: 'pointer',
+    fontWeight: 'bold'
+  });
 
   return (
     <div>
@@ -48,98 +85,66 @@ function App() {
             <span style={{ fontSize: '36px', fontWeight: 'bold' }}>
               Olá, {nomeUsuario}
             </span>
+            {userRole !== 'DONO' && (
+              <span style={{ backgroundColor: '#28a745', color: '#fff', padding: '5px 10px', borderRadius: '5px', fontSize: '14px' }}>
+                {userRole}
+              </span>
+            )}
             <button onClick={handleLogout} style={{ padding: '10px 20px', backgroundColor: '#DC3545', color: '#FFF', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
               Sair (Logout)
             </button>
           </div>
           
           <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '2px solid #ddd', flexWrap: 'wrap' }}>
-            <button 
-              onClick={() => setDashboardTab('perfil')}
-              style={{
-                padding: '12px 20px',
-                backgroundColor: dashboardTab === 'perfil' ? '#007bff' : '#f0f0f0',
-                color: dashboardTab === 'perfil' ? '#fff' : '#000',
-                border: 'none',
-                borderRadius: '5px 5px 0 0',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              📝 Editar Perfil
-            </button>
-            <button 
-              onClick={() => setDashboardTab('produto')}
-              style={{
-                padding: '12px 20px',
-                backgroundColor: dashboardTab === 'produto' ? '#007bff' : '#f0f0f0',
-                color: dashboardTab === 'produto' ? '#fff' : '#000',
-                border: 'none',
-                borderRadius: '5px 5px 0 0',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              📦 Cadastrar Produto
-            </button>
-            <button 
-              onClick={() => setDashboardTab('listar')}
-              style={{
-                padding: '12px 20px',
-                backgroundColor: dashboardTab === 'listar' ? '#007bff' : '#f0f0f0',
-                color: dashboardTab === 'listar' ? '#fff' : '#000',
-                border: 'none',
-                borderRadius: '5px 5px 0 0',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              👁️ Ver Produtos
-            </button>
-            <button 
-              onClick={() => setDashboardTab('vendas')}
-              style={{
-                padding: '12px 20px',
-                backgroundColor: dashboardTab === 'vendas' ? '#007bff' : '#f0f0f0',
-                color: dashboardTab === 'vendas' ? '#fff' : '#000',
-                border: 'none',
-                borderRadius: '5px 5px 0 0',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              🛒 Vendas
-            </button>
-            <button 
-              onClick={() => setDashboardTab('cupons')}
-              style={{
-                padding: '12px 20px',
-                backgroundColor: dashboardTab === 'cupons' ? '#007bff' : '#f0f0f0',
-                color: dashboardTab === 'cupons' ? '#fff' : '#000',
-                border: 'none',
-                borderRadius: '5px 5px 0 0',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              🏷️ Cupons
-            </button>
-            <button 
-              onClick={() => setDashboardTab('dashboard')}
-              style={{
-                padding: '12px 20px',
-                backgroundColor: dashboardTab === 'dashboard' ? '#007bff' : '#f0f0f0',
-                color: dashboardTab === 'dashboard' ? '#fff' : '#000',
-                border: 'none',
-                borderRadius: '5px 5px 0 0',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              📊 Visão Geral
-            </button>
+            
+            {/* Renderização Condicional baseada na função verificarPermissao */}
+            
+            {verificarPermissao('perfil') && (
+              <button onClick={() => setDashboardTab('perfil')} style={getButtonStyle('perfil')}>
+                📝 Editar Perfil
+              </button>
+            )}
+
+            {verificarPermissao('produto') && (
+              <button onClick={() => setDashboardTab('produto')} style={getButtonStyle('produto')}>
+                📦 Cadastrar Produto
+              </button>
+            )}
+
+            {verificarPermissao('listar') && (
+              <button onClick={() => setDashboardTab('listar')} style={getButtonStyle('listar')}>
+                👁️ Ver Produtos
+              </button>
+            )}
+
+            {verificarPermissao('vendas') && (
+              <button onClick={() => setDashboardTab('vendas')} style={getButtonStyle('vendas')}>
+                🛒 Vendas
+              </button>
+            )}
+
+            {verificarPermissao('cupons') && (
+              <button onClick={() => setDashboardTab('cupons')} style={getButtonStyle('cupons')}>
+                🏷️ Cupons
+              </button>
+            )}
+
+            {verificarPermissao('dashboard') && (
+              <button onClick={() => setDashboardTab('dashboard')} style={getButtonStyle('dashboard')}>
+                📊 Visão Geral
+              </button>
+            )}
+
+            {/* Já deixei o botão de funcionários pronto e invisível para quem não for DONO */}
+            {verificarPermissao('funcionarios') && (
+              <button onClick={() => setDashboardTab('funcionarios')} style={getButtonStyle('funcionarios')}>
+                👥 Funcionários
+              </button>
+            )}
+
           </div>
 
+          {/* Área de conteúdo das abas */}
           {dashboardTab === 'perfil' ? (
             <EditarPerfil onUpdateSuccess={(novoNome) => setNomeUsuario(novoNome)} />
           ) : dashboardTab === 'produto' ? (
@@ -152,6 +157,8 @@ function App() {
             <Cupons />
           ) : dashboardTab === 'dashboard' ? (
             <Dashboard />
+          ) : dashboardTab === 'funcionarios' ? (
+            <GerenciarFuncionarios />
           ) : null}
         </div>
       ) : (
@@ -173,10 +180,18 @@ function App() {
             </div>
 
             {authTab === 'login' ? (
-              <Login onLoginSuccess={(nome) => {
+              <Login onLoginSuccess={(nome, role) => {
                 setNomeUsuario(nome);
+                setUserRole(role);
                 setIsLoggedIn(true);
-                setDashboardTab('vendas');
+                localStorage.setItem('nome_usuario', nome); // Garante que o nome fique salvo para o refresh
+                
+                // Define a tela inicial com base no papel
+                if (role === 'COMPRADOR') {
+                  setDashboardTab('listar');
+                } else {
+                  setDashboardTab('vendas');
+                }
               }} />
             ) : (
               <CadastroUsuario onCadastroSuccess={() => setIsModalOpen(true)} />
@@ -197,7 +212,6 @@ function App() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
