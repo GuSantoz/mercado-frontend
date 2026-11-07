@@ -92,21 +92,8 @@ function Vendas() {
       const dados = await resposta.json();
       
       if (resposta.ok) {
-        const idUsuarioLogado = obterIdUsuarioDoToken();
-        
-        // Garante que funcione quer a API retorne um array direto quer retorne { vendas: [...] }
         const listaVendas = Array.isArray(dados) ? dados : (dados.vendas || []);
-        
-        console.log('Todas as vendas retornadas pela API:', listaVendas); // Inspecione a estrutura
-
-        const vendasDoUsuario = listaVendas.filter((venda) => {
-          // Ajuste aqui se a sua API retorna "venda.usuario_id" ou similar
-          const idDonoDaVenda = venda.user_id || venda.usuario_id;
-          return String(idDonoDaVenda) === String(idUsuarioLogado);
-        });
-
-        console.log('Vendas filtradas para o usuário logado:', vendasDoUsuario);
-        setVendas(vendasDoUsuario);
+        setVendas(listaVendas); // <-- Seta a lista completa que veio da API
       } else {
         setErro(dados.erro || 'Erro ao buscar vendas.');
       }
