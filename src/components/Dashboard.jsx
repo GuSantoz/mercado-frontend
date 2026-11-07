@@ -99,6 +99,18 @@ function Dashboard() {
     0
   );
 
+  const totalDescontosConcedidos = vendasAtivas.reduce(
+    (acc, venda) =>
+      acc + (Number(venda.discount_applied) || 0),
+    0
+  );
+
+  const totalPedidosComCupom = vendasAtivas.filter(
+    (venda) =>
+      venda.coupon_code ||
+      (Number(venda.discount_applied) || 0) > 0
+  ).length;
+
   const totalPedidos = vendasAtivas.length;
 
   /*
@@ -254,6 +266,37 @@ function Dashboard() {
                   {totalPedidos !== 1 ? 's' : ''}{' '}
                   realizado
                   {totalPedidos !== 1 ? 's' : ''}
+                </div>
+              </div>
+
+              <div
+                className={`db-card ${
+                  animado ? 'visivel' : ''
+                }`}
+              >
+                <div
+                  className="db-card-accent"
+                  style={{ background: '#8b5cf6' }}
+                />
+
+                <div className="db-card-icon">🏷️</div>
+
+                <div className="db-card-label">
+                  Descontos em Cupons
+                </div>
+
+                <div className="db-card-value" style={{ color: '#8b5cf6' }}>
+                  R${' '}
+                  {totalDescontosConcedidos.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </div>
+
+                <div className="db-card-sub">
+                  {totalPedidosComCupom} pedido
+                  {totalPedidosComCupom !== 1 ? 's' : ''}{' '}
+                  com cupom
                 </div>
               </div>
 
